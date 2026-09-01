@@ -1,6 +1,6 @@
 # Sausage Session Terminal
 
-狀態：**規格完成，等待 issue 拆分與實作**
+狀態：**規格完成，等待 GitHub Issues 啟用與實作**
 
 Sausage Session Terminal 是此 Pi Web fork 的產品名稱。它建立在通用的 Session Wall 功能上，用於同時監看與操作多個 Pi Agent Brain session，並加入 Brain／Hand 工作流狀態呈現。
 
@@ -59,6 +59,7 @@ Sausage Session Terminal 是此 Pi Web fork 的產品名稱。它建立在通用
 - [`docs/session-wall/08_IMPLEMENTATION_PLAN.md`](./docs/session-wall/08_IMPLEMENTATION_PLAN.md)
 - [`docs/session-wall/09_UPSTREAM_SYNC.md`](./docs/session-wall/09_UPSTREAM_SYNC.md)
 - [`docs/session-wall/ROADMAP.md`](./docs/session-wall/ROADMAP.md)
+- [`docs/session-wall/V0.1.0_TRACKER.md`](./docs/session-wall/V0.1.0_TRACKER.md)
 
 ### Sausage Session Terminal 自訂層
 
@@ -67,6 +68,7 @@ Sausage Session Terminal 是此 Pi Web fork 的產品名稱。它建立在通用
 - [`docs/sausage-session-terminal/BRAIN_STATUS_SPEC.md`](./docs/sausage-session-terminal/BRAIN_STATUS_SPEC.md)
 - [`docs/sausage-session-terminal/CUSTOM_ACCEPTANCE_TESTS.md`](./docs/sausage-session-terminal/CUSTOM_ACCEPTANCE_TESTS.md)
 - [`docs/sausage-session-terminal/OPERATIONAL_WORKFLOW.md`](./docs/sausage-session-terminal/OPERATIONAL_WORKFLOW.md)
+- [`docs/sausage-session-terminal/V0.1.0_TRACKER.md`](./docs/sausage-session-terminal/V0.1.0_TRACKER.md)
 
 ## Frozen UI 方向
 
