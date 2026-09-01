@@ -19,6 +19,7 @@ Session Wall 是 Pi Web 的通用多 Session 互動模式。它允許使用者�
 9. [實作計畫](./08_IMPLEMENTATION_PLAN.md)
 10. [Upstream 同步策略](./09_UPSTREAM_SYNC.md)
 11. [Roadmap](./ROADMAP.md)
+12. [v0.1.0 Milestone／Issue Tracker](./V0.1.0_TRACKER.md)
 
 ## v0.1.0 已凍結決策
 
