@@ -1,6 +1,6 @@
 # Sausage Session Terminal
 
-狀態：**規格完成，等待 GitHub Issues 啟用與實作**
+狀態：**規格與 GitHub Issues 已建立，等待實作**
 
 Sausage Session Terminal 是此 Pi Web fork 的產品名稱。它建立在通用的 Session Wall 功能上，用於同時監看與操作多個 Pi Agent Brain session，並加入 Brain／Hand 工作流狀態呈現。
 
@@ -10,6 +10,7 @@ Sausage Session Terminal 是此 Pi Web fork 的產品名稱。它建立在通用
 - Fork：`mtai168/pi-web`
 - 產品名稱：**Sausage Session Terminal**
 - 通用功能名稱：**Session Wall**
+- v0.1.0 總 Tracker：[#1](https://github.com/mtai168/pi-web/issues/1)
 
 ## Branch contract
 
@@ -26,22 +27,24 @@ Sausage Session Terminal 是此 Pi Web fork 的產品名稱。它建立在通用
 - 每格獨立 transcript、ChatInput、draft、Send、Stop。
 - 跨 project session picker。
 - focus／keyboard／toolbar routing。
-- persistence、virtualization、failure recovery與回歸測試。
+- persistence、virtualization、failure recovery 與回歸測試。
 
-此分支不得加入 Sausage 品牌或 Brain／Hand 特定格式。
+GitHub Issues：[#2–#15](https://github.com/mtai168/pi-web/issues/1)。此分支不得加入 Sausage 品牌或 Brain／Hand 特定格式。
 
 ### `custom/sausage-session-terminal`
 
 日常使用的產品層，建立於 `feature/session-wall` 之上。可以包含：
 
 - Sausage Session Terminal 名稱與模式標示。
-- Brain／Hand workflow狀態解析。
+- Brain／Hand workflow 狀態解析。
 - `DISPATCHED`
 - `WAITING_FOR_HANDS`
 - `BLOCKED_OWNER`
 - `MILESTONE_COMPLETE`
 - `milestone`、`active_hands`、`blocker`、`new_dispatches`
 - 其他不適合 upstream 的個人工作流功能。
+
+GitHub Issues：[#16–#19](https://github.com/mtai168/pi-web/issues/1)。
 
 ## 規格文件
 
@@ -77,11 +80,11 @@ Sausage Session Terminal 是此 Pi Web fork 的產品名稱。它建立在通用
 - Wall 模式隱藏右側 file panel。
 - 保留原本 top toolbar 與 bottom global status bar。
 - 固定兩欄。
-- 2×2填滿主要 viewport；2×4與2×6維持可讀 pane高度，由使用者向下捲動。
-- 每格有自己的 ChatInput、draft、Send、Stop與 session-local status。
-- 全域 toolbar跟隨 focused pane。
-- UI直接重用 Pi Web components、spacing、typography、icons、theme variables、hover、border與responsive patterns。
-- 禁止另造 dashboard/card/badge/font/color/modal設計語言。
+- 2×2 填滿主要 viewport；2×4 與 2×6 維持可讀 pane 高度，由使用者向下捲動。
+- 每格有自己的 ChatInput、draft、Send、Stop 與 session-local status。
+- 全域 toolbar 跟隨 focused pane。
+- UI 直接重用 Pi Web components、spacing、typography、icons、theme variables、hover、border 與 responsive patterns。
+- 禁止另造 dashboard/card/badge/font/color/modal 設計語言。
 
 ## Update flow
 
@@ -92,7 +95,7 @@ upstream/main
     -> custom/sausage-session-terminal
 ```
 
-Release前：
+Release 前：
 
 ```bash
 npm test
