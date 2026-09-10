@@ -13,6 +13,12 @@ Sausage Session Terminal 是建立在 Pi Web Session Wall 上的自訂產品層�
 - [日常操作與維護流程](./OPERATIONAL_WORKFLOW.md)
 - [v0.1.0 自訂層 Tracker](./V0.1.0_TRACKER.md)
 
+## 待審查提案：共用 Session 讀取與同步核心
+
+2026-09-10 新增 [共用 Session 核心提案](../session-sync/README.md)，適用於 **normal 與 Wall 兩種模式**，不是 SST 啟動後才生效的加速器。請負責 SST 的 Brain 先依 [審查任務與決策紀錄](../session-sync/03_BRAIN_REVIEW.md) 核對實際部署程式碼、回覆風險與替代方案，再交 Owner 討論。
+
+此提案狀態為 **DRAFT_FOR_BRAIN_REVIEW，尚未核准實作**。它不取代本目錄或 Session Wall 的 frozen v0.1.0 規格，不自動變更 milestone，也不是立即派 Hand 改造 runtime 的授權。
+
 ## 分層原則
 
 ```text
