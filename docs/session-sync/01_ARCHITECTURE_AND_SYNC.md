@@ -11,7 +11,7 @@ SST AppShell：模式邊界之外的 client-scoped read-cache owner
 ├── bounded SessionReadCache
 ├── compatible history GET in-flight registry
 ├── Normal → ChatWindow → 原 useAgentSession
-└── Wall → SessionWallChatWindow → 原 useAgentSession
+└── Wall → SessionWallChatWindow → ChatWindow → 原 useAgentSession
 
 useAgentSession：仍持有 view guards、scroll/draft、runtime reducer、
 queue、optimistic messages、extension UI、command、per-session SSE
