@@ -13,6 +13,14 @@ Sausage Session Terminal 是建立在 Pi Web Session Wall 上的自訂產品層�
 - [日常操作與維護流程](./OPERATIONAL_WORKFLOW.md)
 - [v0.1.0 自訂層 Tracker](./V0.1.0_TRACKER.md)
 
+## 待審查提案：P1 共用記憶體歷史快取與量測
+
+2026-09-10 的 [P1 提案 0.2](../session-sync/README.md)已依 sanitized review snapshot 修訂。候選範圍僅 **P1a：Normal／Wall 共用 bounded memory-only 歷史快取與 GET coalescing；P1b：server／client 分段 profiling**。保留既有 hook、runtime、observer、per-session SSE、command 與 authority，不是 Wall 才啟用的新資料引擎。
+
+請 Brain 依 [0.2 複核任務](../session-sync/03_BRAIN_REVIEW.md)核對本次文件 commit。狀態為 **DRAFT_REVISED_FOR_BRAIN_REVIEW，尚未核准實作**。SQLite、content index、sidecar、multiplex、HTTP/2 調整、replay、IndexedDB、always-on collector 均為另行決策的未承諾選項。
+
+本提案不取代本目錄或 Session Wall 的 frozen v0.1.0 規格，不自動變更 milestone，不授權派 Hand、修改 runtime、部署或合併 PR。
+
 ## 分層原則
 
 ```text
