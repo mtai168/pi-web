@@ -1,0 +1,6 @@
+This prose names workflow statuses but does not emit one.
+The examples include WAITING_FOR_HANDS and BLOCKED_OWNER as ordinary words.
+> BRAIN_STATUS: BLOCKED_OWNER
+- WAITING_FOR_HANDS
+- `MILESTONE_COMPLETE`
+A status mentioned in a quoted specification is not a terminal block.

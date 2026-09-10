@@ -1,0 +1,5 @@
+milestone: old report milestone
+active_hands: 9
+BRAIN_STATUS: WAITING_FOR_HANDS
+blocker: current blocker
+new_dispatches: 0

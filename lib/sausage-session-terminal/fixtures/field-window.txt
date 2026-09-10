@@ -1,0 +1,30 @@
+milestone: stale milestone
+active_hands: 99
+blocker: stale blocker
+new_dispatches: 9
+before 1
+before 2
+before 3
+before 4
+before 5
+before 6
+before 7
+before 8
+before 9
+before 10
+before 11
+before 12
+before 13
+BRAIN_STATUS: DISPATCHED
+milestone: current milestone
+active_hands: 1
+blocker: none
+new_dispatches: 1
+after 1
+after 2
+after 3
+after 4
+after 5
+after 6
+after 7
+active_hands: 8

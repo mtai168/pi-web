@@ -1,0 +1,5 @@
+BRAIN_STATUS: BLOCKED_OWNER
+milestone: I45 owner recheck
+active_hands: 0
+blocker: owner physical recheck
+new_dispatches: 0

@@ -1,0 +1,5 @@
+BRAIN_STATUS: WAITING_FOR_HANDS
+milestone: marker before fields
+active_hands: 3
+blocker: none
+new_dispatches: 0

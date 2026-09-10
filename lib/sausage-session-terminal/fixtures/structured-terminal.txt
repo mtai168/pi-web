@@ -1,0 +1,5 @@
+WAITING_FOR_HANDS
+milestone I45 structured output
+active_hands 2
+blocker none
+new_dispatches 0

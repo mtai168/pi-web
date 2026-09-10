@@ -1,0 +1,11 @@
+BRAIN_STATUS: WAITING_FOR_HANDS
+milestone: old milestone
+active_hands: 5
+blocker: old blocker
+new_dispatches: 1
+
+BRAIN_STATUS: MILESTONE_COMPLETE
+milestone: final milestone
+active_hands: 0
+blocker: none
+new_dispatches: 0

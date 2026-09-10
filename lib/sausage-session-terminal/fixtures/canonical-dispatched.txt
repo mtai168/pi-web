@@ -1,0 +1,5 @@
+BRAIN_STATUS: DISPATCHED
+milestone: SST-01 parser dispatched
+active_hands: 2
+blocker: none
+new_dispatches: 2
