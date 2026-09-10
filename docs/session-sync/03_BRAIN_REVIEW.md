@@ -1,86 +1,69 @@
-# 03 — 給 SST Brain 的審查任務與決策紀錄
+# 03 — 給 SST Brain 的 0.2 複核與開工 gate
 
-狀態：**DRAFT_FOR_BRAIN_REVIEW — 尚未核准實作**
+狀態：**DRAFT_REVISED_FOR_BRAIN_REVIEW — 尚未核准實作**
 
-## 1. 這一輪請先審查，不要開始實作
+## 1. 已完成與尚未完成
 
-Owner 已同意先把共用 session 讀取／同步方案寫入 repo，讓負責 SST 的 Brain 依目前實際程式碼審查並討論；尚未核准這份草稿的技術細節與實作順序。
+Owner 已授權文件修訂與經清理的 review snapshot。提案方現在已直接核對 `b1291393e0d1376d8fd0db3231cd1166a8c1e9ee` 的相關程式碼，並將草案收斂為 P1a/P1b；不再以舊 `0.8.11` 程式碼規劃新版 runtime。
 
-請完整閱讀本目錄，先比較實際部署 checkout、進行中的 Hands、現有 frozen 文件與此提案。你可以指出提案錯誤、過度設計、已有實作或更簡單方案；不必為了接受提案而重做已完成的能力。
+這不代表原部署歷史已公開、不代表每個檔案皆已稽核，也不代表服務與測試被提案方重新執行。證據分層見 00。已移除所有要求自動實作 SQLite／multiplex／replay／IndexedDB 等後續階段的排程。
 
-這一輪不要派會修改 production code 的 Hand，不改 schema／套件／SSE／runtime，不發 prompt／Stop 測試真實 agent，不搬動現有 milestone。可做 read-only audit，或在不影響部署的環境執行現有安全測試；報告必須說明實際做過哪些。
+**請複核這次 docs commit，不要先開始實作。** 不派 production writer，不改 deployed/frozen 文件、不建立實作 issues／調整 milestone，不發真實 prompt／Stop、不部署／重啟。文件審查可在原有工作流程完成，不需再公開原始 191 commits。
 
-## 2. 先對齊基準
+## 2. D01–D10 收斂紀錄
 
-記錄：部署 repo／remote、branch、HEAD、dirty files、啟動方式、Pi SDK／lockfile 版本、Wall 模式切換的實際檔案與函数。此提案基底 `647cd341dcd5a66158f6decd5263dfbb94615385` 只代表遠端審查基準。
+「已收斂」表示規劃方向已同意，不是 Owner 的程式開工授權。
 
-使用既有 checkout 時，先確認 `origin` 是 `mtai168/pi-web`，再按需取得文件分支；不需要切換正在運行的工作樹：
+| ID | 0.2 決策／下一輪只需補的內容 |
+|---|---|
+| D01 模式與所有權 | 已收斂：AppShell 模式邊界外共享 read cache，Normal 不依賴 Wall；原 hook／runtime 保留。Brain 指定最小注入點。 |
+| D02 server／topology | 已收斂：本期不新增 index、DB、worker、sidecar、collector；P1b 可觀測既有 server 路徑。 |
+| D03 來源與外部更新 | 沿用現有 observer／sole-authority。待核對：歷史 projection producer/欄位來源，何時可 admission、何時 bypass；API 未提供的 durable 證明不得虛構。 |
+| D04 freshness／coalescing | 已收斂：同 key 同本地 barrier 才共用；cache 與 consumer 雙層 guards。待補 trigger 表、取消／registry 清理與 anti-ABA 測試映射。 |
+| D05 本機隱私 | 已收斂：memory-only，無新歷史持久化；原 frozen privacy 與 draft 特例不變。未來離線政策本期不需決定。 |
+| D06 command／authority | 已收斂：不改 command、ready、queue、UNKNOWN 與 fail-closed；cache hit 不略過既有 state 載入。 |
+| D07 transport／extension | 已收斂：保留 per-session SSE／observer／runtime reducer／extension UI；不要求單一 SSE 或重寫事件 schema。 |
+| D08 分工與里程碑 | post-v0.1，尚未建 issue 或指定 milestone；開工時再查 active Hands，hot files 單 writer，不依賴過往「沒有 Hand」報告。 |
+| D09 配額與量測 | 待 Brain 提具體 cache／單項／registry 上限、估算方法、flag、測試裝置與 baseline 採樣方法；不得把舊 100ms／256KiB 當已核准門檻。 |
+| D10 已有能力與必要修改 | 已有 catalog/observer/guards/authority 路徑重用。Brain 指出仍有錯誤的程式碼證據或更小接法；不為符合命名重造模块。 |
 
-```bash
-git remote -v
-git status --short
-git branch --show-current
-git rev-parse HEAD
-# 僅在確認 origin 指向本 fork 後執行：
-git fetch origin docs/session-sync-review
-git show FETCH_HEAD:docs/session-sync/README.md
-```
-
-其餘文件同樣可用 `git show FETCH_HEAD:docs/session-sync/<filename>` 閱讀，或直接看 Draft PR。不要 `reset --hard`、強制 checkout 或自動 stash 使用者修改。
-
-## 3. 必須回答的決策
-
-| ID | 問題 | 提案起點（未核准） |
-|---|---|---|
-| D01 | provider／store 放在哪裡，才能從未開 Wall 的 normal 也生效？按鈕有沒有整頁重載？ | root 在模式邊界外，兩種畫面只是 consumer；保留 normal URL／selection 行為。 |
-| D02 | 現有部署中哪個程序擁有 collector／index writer／hub？ | 同 repo 的受管理 worker／sidecar；先單 owner，避免 Next 多程序／HMR 重複初始化。driver、IPC、啟動與重建由 Brain 提案。 |
-| D03 | 外部 CLI 哪些資訊可觀察，哪些只能 unknown？ | 已落盤 history + runtime 可取得的狀態；不假設檔案能提供尚未落盤 token。 |
-| D04 | snapshot／replay／subscription 更新如何保證無缺口？ | materialization revision、coverage、runtime seq、transport cursor 分離；有界保留，不能補時 resync。請提出時序與反例。 |
-| D05 | 本機內容快取的預設與隱私？ | 與 WallLayoutStore 分離；可停用／清除／限制容量。共用裝置、授權未確認時的離線顯示、跨 tab 清除需 Owner 定案。 |
-| D06 | 移除 per-session SSE ready 依賴後，命令成功／拒絕／UNKNOWN 如何判定？ | 保留 HTTP 命令；未具備可靠 dedup／receipt 前禁止自動重試；不把 transport ready 當 agent ready。 |
-| D07 | 新舊 transport 切換如何保留 queue／extension UI／通知？ | 單一 reducer owner；明確 request／run routing、去重及 rollback。 |
-| D08 | 正在執行的 SST Hands／milestone 如何避開衝突？ | hot files 單一 writer；不擅自把此提案塞進 v0.1.0。先提供安全插入點及依賴。 |
-| D09 | 效能／容量／重連門檻與支持環境？ | 02 文件為候選目標。須定案 desktop／Android 型號、網路、Node／browser、DB／queue／cache 預算及 raw measurement。 |
-| D10 | 哪些建議目前已做、哪些不值得做？ | 已有能力重用；不得只為吻合文件重寫。需要延後的項目列理由與仍可成立的驗收範圍。 |
-
-## 4. 回覆格式
-
-請先將審查結果回報 Owner；可另提 docs-only commit 或在 Draft PR 留言。不要先把文件狀態改成「已核准」。
+## 3. 下一轮回覆格式
 
 ```text
-Review status: ACCEPT_WITH_CHANGES / NEEDS_REVISION / BLOCKED_BASELINE
-Deployment baseline: repo, branch, HEAD, dirty state, runtime version
-Audited code: file:function/line @ SHA
+Review status: ACCEPT / ACCEPT_WITH_CHANGES / NEEDS_REVISION
+Reviewed docs commit: <這次 PR #20 的確切 head SHA>
+Reviewed code: b1291393e0d1376d8fd0db3231cd1166a8c1e9ee
+Source identity: 01f28079646952bcedbe88bd5b16913854c18382
+Current implementation source SHA: <部署端核對；有前進則列 delta>
 
-1. 整體判斷：是否能同時改善 normal／Wall？最小可行方案是什麼？
-2. 已存在的能力：哪些無需重做，證據在哪裡？
-3. 錯誤／風險／反例：逐项對應文件與程式碼。
-4. D01–D10 決策建議：建議、替代方案、trade-off、是否需要 Owner 決策。
-5. frozen 規格 amendments：逐檔列出，不直接默默覆盖。
-6. 部署與現有 Hand 衝突：file ownership、依賴、建議插入點。
-7. 驗收與回退：哪些測試已存在、還缺什麼？
-8. 下一輪討論：仍未解決的 blocker 與最小需要資訊。
+1. P1a/P1b 是否精確，不含 deferred 項目的暗中前置條件？
+2. producer→cache projection、來源可辨識／bypass 條件與 key 欄位表。
+3. invalidation triggers、request cancellation、cache admission 與
+   既有 observer/pagination/loading guards 的接入位置。
+4. cache hit 如何先顯示 transcript，又不跳過 state／ready／runtime？
+5. 配額、flag、estimated bytes 方法、測試裝置／raw baseline 方案。
+6. T01–T20 與既有 tests 的覆蓋、需新增測試、單一 writer 分工及回退。
+7. frozen 正式契約保持不變的確認；核准後需要的 post-v0.1 addendum。
+8. 尚未解決的 blocker；不要把「未量測」包裝成測試通過。
 ```
 
-不得把「尚未量測」當作不判斷結構問題的理由，也不得把靜態推論包裝成已重現效能結果。對未知部署資料，保留 UNKNOWN 而非猜測。
+審查直接留在 PR #20，提供 `file:function/line @ SHA`。原來含敏感部署資料的留言已重建，請使用目前公開的去識別化留言／snapshot 連結，不重新貼私密值或舊歷史原文。
 
-## 5. Gate 紀錄（目前全部尚未完成）
+## 4. Gate 狀態
 
-| Gate | 狀態／紀錄 |
+| Gate | 本輪狀態 |
 |---|---|
-| G0-A 部署 HEAD 與完整切換路徑對齊 | PENDING |
-| G0-B Brain 程式碼審查與反例回覆 | PENDING |
-| G0-C D01–D10 決策及 frozen amendments 定案 | PENDING |
-| G0-D 驗收、分工、回退、milestone 插入點確認 | PENDING |
-| G0-E Owner 明確核准 | **NOT APPROVED** |
+| 可讀的固定 review baseline | **AVAILABLE**：sanitized `b1291393…`；不再要求公開 source 原歷史。 |
+| 提案方相關程式碼獨立閱讀 | **DONE_FOR_LISTED_SCOPE**：00 的 E1–E13；非整體部署驗證。 |
+| 依共識修訂 P1 文件 | **本次 docs commit 交付**；以 PR head／交接留言記錄 SHA，避免文件自指循環。 |
+| Brain 對 0.2 文件複核、參數／producer 條件定案 | **PENDING**。 |
+| 開工時真實整合 HEAD／delta／writer ownership | **PENDING**，不得用 review root 或 docs branch。 |
+| Owner 核准實作 | **NOT APPROVED**。 |
 
-核准時才填：
+只有核准後才填：Owner 核准引用、docs commit、實作 SHA、P1a/P1b 明確範圍、excluded options、驗收／配額與回退、post-v0.1 issues／依賴及 writer。未填不應自動派 Hand。
 
-- Owner 核准引用／時間：未提供。
-- 核准文件 commit：未定。
-- 實作基底 commit：未定。
-- 已核准階段與明確排除範圍：未定。
-- 目標 branch／milestone：未定。
-- 實作 issue 清單／單一 writer ownership：尚未建立。
+## 5. 文件與程式的整合規則
 
-上述紀錄完成後，才將提案標為 `OWNER_APPROVED_FOR_IMPLEMENTATION`，同步修改受影響契約並建立實作 issues。之後 Brain 可依已核准 DAG 繼續派 Hand，無須重新猜測需求；遇到超出核准範圍的問題再回 Owner。
+本次修改只在 `docs/session-sync/`、SST README 的待審入口與 PR 說明。原 frozen 02–08／trackers 不改。文件分支沿 `642ca316…` 前進，不 rebase 到 sanitized root；程式資料僅作外部固定引用，不拷貝進 docs PR。
+
+正式開發從 Brain 核對的真實整合 HEAD 開工作分支，遵守既有 generic→custom 分層。若需將新提案帶到較新的產品分支，只搬核准的文件變更，不反向合併舊程式樹。feature flag 退回原 read path，不創造第二套 runtime；未來 deferred options 另開 ADR，不接成自動的 P2。

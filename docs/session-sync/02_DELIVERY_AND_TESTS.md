@@ -1,96 +1,110 @@
-# 02 — 分階段交付、分工與驗收
+# 02 — P1b 量測、交付、驗收與回退
 
-狀態：**DRAFT_FOR_BRAIN_REVIEW — 尚未核准實作**
+狀態：**DRAFT_REVISED_FOR_BRAIN_REVIEW — 實作未核准**
 
-以下 SS-* 是提案工作代號，不是已建立 GitHub issues，也不是現行 milestone 的新增承諾。需先通過 [Brain 審查 gate](./03_BRAIN_REVIEW.md)。
+本版沒有自動續做的 P2–P6。以下工作包不是已建立 issue／milestone；只有 Owner 核准後才可派實作 Hand。
 
-## 1. 交付順序與 gate
+## 1. 交付順序
 
-| 階段 | 交付 | 依賴與出口 |
+| 工作包 | 內容 | 出口 |
 |---|---|---|
-| G0／SS-00：部署基準與契約 | 對齊實際 SST HEAD、模式切換、所有事件／命令、frozen 衝突；定案 protocol、隱私與 topology | 只審查，不派 production writer。Owner 核准確切文件與範圍後才離開 G0。 |
-| P1／SS-01：共用前端 read store | normal 先接共用 store、記憶體快取、request／view generation、coalesced loads；保留現有 UI 與暫時 transport adapter | cold-start normal 從未進 Wall 也受益；A→B→A 不等待網路；旧回應不能回退；功能回歸通過。 |
-| P2／SS-02：索引與有界查詢 | 单 writer source index、cached summary、tail／around-anchor、tree DTO／body 預算、外部變更校正 | 可與 P1 的獨立模組並行，需已定介面。warm query 不全檔解析；rewrite／branch／delete fixtures 通過。 |
-| P3／SS-03：共用 live／diff | event hub、per-page SSE、snapshot checkpoint、replay／resync、runtime snapshot；明確命令 ready 分離 | 依 P1／P2 与命令能力決策。切換前先通過協定契約測試，再切換唯一事件 reducer owner。 |
-| P4／SS-04：持久化與恢復 | IndexedDB、coverage／checkpoint 交易、quota／auth partition、前背景策略 | 依 P1 與定案版本契約。可先用 fake server 平行開發，但不能以自創另一套 schema 整合。 |
-| P5／SS-05：Wall 整合與渲染 | 所有 pane 接同一服務，catalog／通知去重，真正列表 virtualization、重內容按需 | normal→Wall→normal 不重建資料引擎，4-pane live 不干擾輸入；8／12-pane 保留原有 hot／warm／cold 行為。 |
-| P6／SS-06：回歸與 rollout | 隔離環境 production benchmark、斷線／失效／長跑、旗標回退及操作文件 | 不改 Pi 歷史格式；完成所有 correctness gate 才可擴大啟用。 |
+| R0：本輪文件複核 | Brain 對照 review SHA 核對 projection／producer、cache key／barrier、現有 hot files 與測試；提交配額、flag 與量測環境建議 | Owner 核准 docs commit、真實實作 SHA、P1 範圍及驗收；目前尚未通過。 |
+| P1b-baseline | 在核准的隔離環境取得現有 cold/warm、server/client 基準；profiling hook 只記成本，不更改讀取或命令語意 | 有 raw samples、模式／來源／資料量與環境記錄；不要只報平均。 |
+| P1a-core | 有界 memory projection cache、in-flight coalescer、失效／取消與單元測試 | identity、stale admission、共享取消、容量與錯誤測試通過。 |
+| P1a-integration | 單一 integration writer 將 AppShell、ChatWindow／useAgentSession 的 detail/context 讀取接入；保留 runtime 與 per-session SSE | Normal 從未開 Wall、Normal↔Wall、四格與 mobile Normal 驗收。 |
+| P1b-comparison | 同樣條件比較 flag off/on，分開 cached paint、revalidated paint、HTTP 數量與記憶體成本 | 正確性通過、回退可用，Owner／Brain 檢視效益及剩餘瓶頸。 |
 
-P1 可以先改善記憶體回切，不必等 SQLite 或多路 SSE 完成。P5 名稱不代表 Wall 直到最後才可用；現有 Wall 繼續工作，這一階段完成新核心的全面接入與最終效能驗收。
+baseline 與獨立 cache 單元模組可在介面確認後平行；不要求先有龐大 benchmark 平台，也不以「只做 profiling」取代已同意的 cache 改善。
 
-## 2. 建議模組與單一 writer 分工
+## 2. P1b 的量測邊界
 
-路徑為建議，Brain 必須先對照部署現況；存在同名模組時擴充，不重複造輪子。
+### Server：沿現有 detail/context 路徑拆段
 
-| Hand 邊界 | 建議檔案所有權 | 禁止跨寫 |
-|---|---|---|
-| Contract writer | `lib/session-sync/types.*`、wire fixtures、schema tests | 不順便改 AppShell、runtime 或兩份 protocol。介面冻结後再派下游。 |
-| Read/index writer | `lib/session-read/**`、index tests、read API 專屬檔案 | 不碰前端；需要 rpc-manager event 接點以介面需求交 integration owner。 |
-| Client/cache writer | `lib/session-sync/client/**`、cache／reducer tests、IndexedDB adapter | 不與另一 Hand 同改 useAgentSession。 |
-| Hub writer | `lib/session-sync/server/**`、SSE endpoint、replay／backpressure tests | 不私自改命令語意。 |
-| Core integration writer | `AppShell.tsx`、`ChatWindow.tsx`、`useAgentSession.ts`、Sidebar、rpc-manager 的必要 adapters | 這些 hot files 同一時段只給一位 writer；所有其他 Hand 只提供 patch 建議／contract。 |
-| Independent reviewer／test writer | 測試 fixtures、E2E 專屬檔案、review report | 不與被審核 writer 共寫同一 production file。 |
+依 00 的 E6/E7，記錄 request id（非私密路徑）、read mode、cache cold/warm、總 entries／回傳 entries、歷史種類與下列 spans：
 
-建立依賴 DAG，不用「多開 Hand」換取同檔衝突。測試與協定、index 與 client 可平行；核心整合依已凍結契約串行完成。Brain 回報實際 branch／commit／owner，不假裝這份表已經派工。
-
-## 3. 必要正確性測試
-
-| ID | 情境 | Pass 條件 |
-|---|---|---|
-| C01 | 新頁面只用 normal，從未進 Wall | 新共用服務照常存在；不依賴 Wall mount 才初始化。 |
-| C02 | A→B→A，A 在 memory cache | 顯示實際 A 內容不需等待 HTTP；草稿、branch、閱讀位置不串到 B。 |
-| C03 | Wall→normal→Wall（重複 100 次） | 共用 store 存活、cache 不清空；穩態只有一條 session SSE／頁；watcher、listener、timer、通知沒有累積。 |
-| C04 | 深歷史閱讀錨點約距 tail 1,000 entries | 缺快取時以 around-anchor 直接定位；不可從 tail 每 50 筆串行找回。anchor 失效回明確狀態。 |
-| C05 | 故意讓舊 HTTP 在新快照／SSE 後抵達 | appliedRev 不倒退；同 session 不同 leaf、舊 auth namespace 回應也不能污染。 |
-| C06 | HTTP snapshot 與 live 接上之間完成訊息 | 正式訊息最終恰好呈現一次；不靠下一次人工 Refresh 才補回。 |
-| C07 | metadata-only session 已知 rev 高於本機內容 | 只更新 knownRev；切入後仍補缺內容，不提前推進 appliedRev。 |
-| C08 | snapshot、diff、SSE 重複／亂序，或訂閱 ACK 晚到 | entry／revision 去重；更舊 generation 不覆蓋目前需求。 |
-| C09 | IndexedDB 寫入前後 crash／quota／schema blocked | 不出現游標超前資料；可以降級，重新啟動可補齊。 |
-| C10 | cursor 過期、hub 重啟、queue overflow | 明確 resync，再接 live；不無限 replay，不靜默漏正式資料。 |
-| C11 | 瀏覽 12 個休眠 session／訂閱冷 session | 沒有因觀看而呼叫 AgentSession 啟動；read service 不內接 12 條舊 SSE。 |
-| C12 | 全域 SSE 已連上，目標 session 尚未啟動 | Send 仍正確初始化／拒絕／回報 UNKNOWN；失敗不重送。 |
-| C13 | Send 接受後回應遺失，再重連／切模式 | 沒有第二次 prompt／Stop／fork；未具備命令去重時禁止自動 retry。 |
-| C14 | queued follow-up／steering、retry、compaction、extension run | 不於第一個 agent_end 過早結束；保留原 queue／draft recovery。 |
-| C15 | blocking extension UI、同 session 多 view、replay | request 路由與回覆不交叉／重複；通知音不因 replay 再播。 |
-| C16 | SDK event 與 watcher 同時報告一則完成訊息 | durable entry 與累積統計只入帳一次。 |
-| C17 | 外部 CLI append，半行 JSON／跨 UTF-8 chunk | 只提交完整 entry；完成後可見；不宣稱看見尚未落盤 token。 |
-| C18 | 同大小 rewrite、replace、truncate、delete／recreate | source generation 正確失效與重建；舊 offset／cache 不讀錯檔。 |
-| C19 | fork、新 leaf、非 tail branch、compact、header rewrite | 內容符合 SDK fixture；fork ID rekey、wrapper 銷毀與 cold view 不混淆。 |
-| C20 | tree 保留節點塞巨大 thinking／tool／base64 image | 導航不帶完整 entry；首屏 wire bytes 受預算限制。 |
-| C21 | 四 session 同時生成，大量歷史＋一個巨大 tool body | A 更新不使 B/C/D 重算歷史；可輸入；一個大事件不餓死其他 session。 |
-| C22 | 手機背景／鎖屏／被丟棄後恢復 | 先 cache、再校正；不要求背景永遠在线；不重播全部 token。 |
-| C23 | 登出、auth scope 改變、session 撤權、跨 tab | stream 停止或重新授權；cache 分区／清除生效；不跨權限洩漏。離線顯示政策按核准決策測。 |
-| C24 | 索引重建／DB 不可用／feature rollback | Pi JSONL 不受損；唯讀服務可有界降級；不可默默啟動 agent 來代替讀取。 |
-
-另外保留現行 normal 與 Wall 的 Send／Stop、keyboard focus、toolbar、URL、draft、tool selection、file allow-list、project trust、branch navigator、export、extension 與自訂 parser 測試。新測試不能取代原測試。
-
-## 4. 效能與資源驗收
-
-先做「工作量與正確性」斷言，再做硬體相關數值。下列數字是候選工程預算，未量測，也不是保證：
-
-| 指標 | 候選目標／量法 |
+| 階段 | 測法與限制 |
 |---|---|
-| memory cached switch | 指定桌面與 Android 裝置，輸入事件至實際訊息首屏 p95 < 100ms；阻斷網路仍成立。 |
-| IndexedDB 恢復 | 分開記錄 app shell ready→cached content 與 navigation→content；不以 skeleton 冒充內容，也不隱藏 JS 初載時間。門檻由 G0 定案。 |
-| warm indexed tail／anchor | 每個 query 的 full-file parse count = 0；工作量有界於頁面與索引定位，不隨全部歷史線性重建。 |
-| 最近頁 payload | 以 count + bytes 雙預算；候選 JSON 256KiB，不含按需 body/media；過大合法降級且 UI 顯示可展開。G0 確認。 |
-| input latency／render | 4-pane live、長工具輸出時分開量 p50/p95 input-to-paint、long tasks、pane render count；由 G0 定義装置與門檻。 |
-| stream ownership | 穩態每頁恰有一條 session 更新 SSE；切模式不重建。網路重連過渡若有重疊須有明確短上限與 generation guard。 |
-| resources | 登錄每 client queue bytes、cache bytes、DB size、watcher/listener count；模式切換 100 次及長跑無單調洩漏，達 quota 必須可降級。 |
-| sync freshness | 分開記錄已管理 runtime event latency、外部 file observed latency、reconnect catch-up；不把三者混成「即時」。 |
+| resolve/open/read/parse | 先分 resolveSessionPath 與 SessionManager.open。SDK 內無可靠細分時標成 `open_read_parse` aggregate，不能把整段假稱純 JSON parse；也不要求為 P1 修改 SDK。 |
+| entries/context | entry 取得與 buildSessionContext 分開；記錄 tail/before、結果數量與耗時，不新增索引。 |
+| tree/project | getTree 與 projectTreeForResponse 可分段；即使快取只保存 transcript，仍量 API 回傳 tree 的成本。 |
+| stats/timing | computeSessionStats、computeSessionTotalActiveMs 分段。 |
+| metadata/project info | stat、parent resolution、attachSessionProjectInfo 等獨立記錄，避免把這些等待全部算進 parse。 |
+| serialize/response build | 測實際序列化或 response construction 的可觀察邊界；不為計時額外 JSON.stringify 一次完整歷史，不以準備 DTO 的時間冒充 network send。 |
 
-fixtures 至少包括 50／1,000／10,000／50,000 entries、分支、深鏈、同筆巨大內容、4／8／12 sessions，以及 0／100／300ms 模擬 RTT。測 1 個和 2 個客戶端、agent 閒置與多 Hand 工作，避免只有理想本機空載數字。
+nested spans 不重複加總；proxy request 與本機 read 分別標示，不從兩台未同步時鐘相減造出精確 latency。若無法取得某段，標 N/A／aggregate 與原因。
 
-server 記錄 API 分段耗時、source scan bytes、解析 entries、index hit、serialized bytes、event-loop lag 與 queue overflow；client 記錄 cache hit、stale response drops、diff bytes、recovery reason。log 使用 ID／統計，不收正文。
+### Client 與 wire
 
-沿用現有 `npm test`（目前為 Node test runner）、`tsc --noEmit`、`npm run lint`，不為此強制遷移到 Vitest。production benchmark／release build 放在獨立 checkout／worktree，不在運行中的 dev checkout 做 `next build`，遵守 AGENTS.md。本次純文件提交不宣稱執行過上述 app tests。
+分開記錄：使用者切換事件、cache lookup、histories 可用、實際 cached transcript 首次可見、revalidation request start/body end/parse、guarded commit、revalidated transcript 可見。既有 JS／app shell 啟動時間另外報告，不能藏在「cache 很快」之外。
 
-## 5. Rollout／回退
+瀏覽器 Resource Timing／DevTools 可提供 TTFB、body transfer、encoded／decoded／transfer size、nextHopProtocol 等資料；TTFB 不是純 server 計算時間，responseEnd-responseStart 也不是純網路 RTT。`Response.json()` 可包含 body 等待與 parse，不要直接命名為 parse-only。缺少量測權限／欄位時保留 unknown，不放寬 CORS／授權來追數字。[R1]
 
-先讀取層，再共用快取，再 transport 切換；每批保持可獨立回退。read／client／sync 開關為應用級能力，非 Wall-only 開關。
+Server-Timing 可作為數字 spans 的候選載體，但不是要求新增 protocol。不得把 session 正文、內部 host/path、工具參數或 credentials 寫進 headers/logs。[R2]
 
-shadow read 只能比對資料與效能，不得 dispatch 命令。新舊事件路徑切換必須單一 reducer owner：不可同時兩邊各自追加訊息或播放通知。正式切新 transport 前先驗證冷啟動 Send 與 extension UI。
+React commit／requestAnimationFrame 只能作觀測代理；以瀏覽器 trace 或 E2E 的實際內容可見性核對 cached/revalidated paint，說明量法限制。使用合成對話，避免再產生真實 session 截圖或持久化敏感 HAR。
 
-索引使用可重建 schema；遷移失敗不改 Pi 原始檔。保留舊 API 的相容 adapter，期限由 Brain 定案，避免永久養兩套資料真相。命令狀態不明時，回退也不能重播。
+同時記錄 exact-key hits/misses/bypasses、coalesced callers、stale admission drops、active GETs、估算 cache bytes、eviction、heap trend、event-loop lag、render 次數。診斷資料本身須有上限，量 off/on 的 instrumentation overhead。
 
-文件審查 PR 不合併任何實作。核准後 generic 內容依既有 upstream→main→feature→custom 路徑整合；如部署 HEAD 已前進，先重算差異，不把舊文件基底拿來覆蓋新程式。
+### SSE 只觀察，不改造
+
+記錄實際 browser→SST 與 SST→owner 的協定／連線數／排隊／重連。成功定義不是「恰好一條 SSE」，也不改 HTTP/2、proxy、subscription 或 existing grace timers。若發現 connection-slot 問題，記入獨立後續決策。
+
+## 3. P1 必要驗收
+
+| ID | 測試 | Pass 條件 |
+|---|---|---|
+| T01 | 新頁直接 Normal，從未進 Wall | cache owner 已存在，歷史 GET 能使用新 adapter。 |
+| T02 | 同頁 A→B→A，A key/coverage 命中；刻意延後背景 HTTP | 實際 transcript 在 HTTP 完成前可見；不是 skeleton／空白 loading；稍後校正不回退。 |
+| T03 | Normal→Wall→Normal 重複切換 | cache 不被模式卸載清空；原有 selection、scroll、draft、toolbar ownership 不串格。SSE 維持既有策略，不新增重連 storm。 |
+| T04 | 四格與兩個 view 指向同一 session | 歷史可共享；typing、queue、optimistic、extension UI、focus 各自正確；一個 view 的 lazy hydration 不 mutate 另一個。 |
+| T05 | 同 key 同 barrier 的 GET 並行 | 一個進行中 fetch 供相容 consumers；detail/context、leaf/before/tail/defer/來源不同不誤合併。 |
+| T06 | observer／connected／refresh 令 barrier 前進 | 新 revalidation 不加入旧 Promise；舊 200 不寫成 fresh cache，舊 404／error/finally 不破壞新狀態。 |
+| T07 | 單一 consumer unmount／abort，另一個仍等待 | shared GET 繼續；退出者不套用。settled/failed/aborted registry 回收；最後 consumer 政策有界。 |
+| T08 | eviction／clear 後同 key 新請求，舊請求晚到 | 沒有 generation ABA；舊結果不能重新污染 cache。 |
+| T09 | active leaf 移動、explicit leaf、舊 before anchor | key/coverage 正確；保留既有 pagination 與 observer guards／entry ID 去重；未知 resolved leaf 不造假。 |
+| T10 | cache hit 同時有更新的 observer snapshot／optimistic view | cache hydrate 不倒退已知新視圖；revalidation 仍走原 guards。 |
+| T11 | cache hit + includeState／command readiness | `/api/sessions/[id]/state` 等原流程不被略過；不從歷史推斷 running／authority／agent ready。 |
+| T12 | 巨型 tool/media entry、很多 pages、頻繁失效 | pages/entries 與 estimated bytes 雙上限；單項 bypass；pending registry／tokens／diagnostics 不洩漏，eviction 不丟 draft。 |
+| T13 | cache miss／網路錯誤／接受的 404 或拒絕存取 | 沿用載入與錯誤語意；可保留的 stale 內容與必須失效的資料明確區分；不提升 command 權限。 |
+| T14 | 手機 Normal A→B→A、背景回前景、輸入／捲動 | 指定 Android browser 的針對性 consumer regression 通過；頁面被丟棄時安全走 cold path。不新增 mobile Wall。 |
+| T15 | reload／關閉頁面／storage 檢查 | 沒有新增 transcript 持久化；memory 消失後正確讀取。既有 draft 保存不因 cache 功能改變。 |
+| T16 | read retry、模式切換、cache 恢復 | 不重送 prompt／Stop／fork；commands 不進 coalescer；UNKNOWN／sole-authority fail-closed 回歸通過。 |
+| T17 | cache source 分類與 response projection | 只保存允許的歷史部分；transient/live-unknown 可 bypass，不把 SessionData／runtime event 全包入 cache；不偽造 durable revision。 |
+| T18 | refresh／observer 重複提示、四格大量更新 | 無自我失效循環／無界 retry；只按實際需要校正，不為每 token 發新 GET。 |
+| T19 | instrumentation off/on、flag rollback | 不改 response／authority／command 語意；關掉 cache 回原 read path，pending consumers 可完成或安全取消，不重新 dispatch 命令。 |
+| T20 | 真正 cold/uncached 長歷史 | 如實報告仍有 parse/tree/stats/wire 成本；不得用 warm cache 的結果假称 cold API 已最佳化。 |
+
+這些是候選測試，不是本輪已通過的結果。保留現有 catalog、observer、stale loading/pagination、draft、fork／tool recreation、retry/compaction/queue、extension、authority、SSE、toolbar、file allow-list 與自訂 parser 測試。既有 SSE 可能進行的初始化不因 P1 被重新定義；只檢查 cache 本身沒有引入新副作用。
+
+## 4. 測試矩陣與效能判斷
+
+桌面 2×2 是主要使用情境；2×4／2×6 做既有 regression/resource coverage，不新增功能。Mobile 僅 Normal 的針對性操作。Brain 記錄指定 desktop／Android 裝置、browser／Node、讀取來源角色、啟動模式、資料量與合成內容類型。
+
+至少比較小歷史、長歷史、同筆巨大工具內容；fresh open、cache hit、cache evicted、前背景恢復；agent 閒置與四個 mocked streams 活動時。延遲與亂序以可控制的 fake fetch／合成 server 測試，不能靠操作真實使用者 session 發 prompt／Stop。
+
+採 p50/p95、樣本數、冷暖分開與 raw measurements；具體毫秒、配額與容許 regression 由 Brain 根據 baseline 提案後鎖定。原 0.1 的 100ms／256KiB 並非核准硬門檻。裝置無關的 gates 是可见內容不等 revalidation、正確 coalescing、沒有 stale poisoning 與資源有界；不能只以「感覺變快」收工。
+
+## 5. 分工與回退
+
+候選 file ownership：cache module/tests 一位 writer；AppShell／ChatWindow／useAgentSession 及必要 adapter 的 integration 一位 writer；profiling 在獨立 utility/harness 可平行，但同 route／hook 與 integration writer 串行協作；獨立 reviewer 不與 writer 同改 production hot file。路徑在派工前由 Brain 對照現況，這不是現在已派 Hand。
+
+Feature flag 為應用級 read-cache 能力，不綁 Wall。回退只停用 admission／reuse／coalescing、回原 GET；不重置 authority、SSE 或 runtime，不刪 Pi 檔案，不重送命令。未完成的共享請求以原訂約定收尾，不能讓 rollback 的舊 callback 套入新 view。
+
+沿用 package 的 Node test runner、typecheck、lint 與現行 E2E；不強迫換 Vitest。不在運行中的 dev checkout 做 `next build`，遵守 AGENTS.md；正式 build／benchmark 僅在經核准的隔離環境。開工後先跑相關單元與整合，再跑既有回歸。本輪只檢查文件與程式碼證據，沒有跑 application tests。
+
+## 6. Deferred options 的觸發條件
+
+| 獨立候選 | 才值得重新評估的原因 |
+|---|---|
+| content index／SQLite／sidecar | uncached detail/context 的 server 成本仍主導，現有讀取機制無法合理改善；先比較更小改動，不預選技術。 |
+| multiplex／HTTP/2 調整 | 實際連線排隊／重連或 deployment 限制有證據；另審協定、authority 與取消語意。 |
+| replay | 有新的無缺口恢復需求或既有恢復不足的可重現情境；另定事件與版本契約。 |
+| IndexedDB | Owner 要求跨重開歷史；先決定授權分區、撤權、離線顯示與清除政策，非本期隱含授權。 |
+| always-on collector／新 around-anchor／render 重構／原生客戶端 | 明確產品或 profiling 證據，另作範圍與成本決策。 |
+
+沒有自動「P1 完成就派下一階段」。量測可得出暫不需要額外架構的結論。
+
+## 平台依據
+
+- R1：[MDN PerformanceResourceTiming](https://developer.mozilla.org/en-US/docs/Web/API/PerformanceResourceTiming)，用於瀏覽器側 timing／size／protocol 的能力與限制。
+- R2：[MDN Server-Timing](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Server-Timing)，用於選擇性呈現 server spans；不提供應用層一致性保證。

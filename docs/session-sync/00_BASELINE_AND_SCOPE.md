@@ -1,69 +1,53 @@
-# 00 — 基準、證據與範圍
+# 00 — 可讀基準、證據與範圍修正
 
-狀態：**DRAFT_FOR_BRAIN_REVIEW — 尚未核准實作**
+狀態：**DRAFT_REVISED_FOR_BRAIN_REVIEW — 實作未核准**
 
-## 1. 可重現的遠端基準
+## 1. 三個不同的版本身份
 
-2026-09-10 經 GitHub 讀取：
-
-| Ref | SHA |
+| 身份 | 固定 SHA／用途 |
 |---|---|
-| `main` | `28bab3c25f5f6770c9b0b745ebbfec1c27f7b948` |
-| `feature/session-wall` | `2dee5ad337770166c4e8aa1c28bc7e9736d266d8` |
-| `custom/sausage-session-terminal` | `647cd341dcd5a66158f6decd5263dfbb94615385` |
+| 舊提案文件 | `642ca316b39702ac8d8becb726388f9d127ad4d0`；本次文件修訂的 parent，不是新版程式證據。 |
+| 原始部署來源 | `01f28079646952bcedbe88bd5b16913854c18382`；仍保留在 Owner 環境，不要求公開歷史。 |
+| 可獨立讀取的 review snapshot | `b1291393e0d1376d8fd0db3231cd1166a8c1e9ee`；本次以下程式碼連結全部固定到這個 SHA。 |
 
-此次提案以最後一個 SHA 的文件及下列程式碼為引用基準。[package.json](https://github.com/mtai168/pi-web/blob/647cd341dcd5a66158f6decd5263dfbb94615385/package.json) 為 Pi Web `0.8.11`、`@earendil-works/pi-*` `0.84.3`，不是前次討論 upstream 的 `0.9.0／0.85.1`。不應跨版本套用行號或 SDK 行為。
+[快照說明](https://github.com/mtai168/pi-web/blob/b1291393e0d1376d8fd0db3231cd1166a8c1e9ee/REVIEW_SNAPSHOT.md)及[逐檔 manifest](https://github.com/mtai168/pi-web/blob/b1291393e0d1376d8fd0db3231cd1166a8c1e9ee/REVIEW_SNAPSHOT_MANIFEST.tsv)記錄：579 UNCHANGED、1 SANITIZED、5 EXCLUDED，另有生成的說明／manifest；`next.config.ts` 的私密 host 已替換，workflow 與真實截圖未納入。這些「與 source 相同」的對照依據是部署端 manifest；提案方未取得私有 source tree 重新做逐 byte 比較。
 
-**重要限制：Owner 描述的已運行 Wall／normal 切換實作，尚未在這份審查中對齊部署 commit。不能把遠端規格狀態當作部署進度，也不能宣稱那顆按鈕的生命週期已驗證。**
+提案方直接確認 review commit 無 parent，並核對下表的實際程式碼。未連入部署主機、未核對現在的服務 PID、未重啟或跑真實 agent，也沒有執行 application tests。快照未包含的部署配置／歷史不列為獨立驗證通過。
 
-## 2. 本輪直接讀取的證據
+[package.json](https://github.com/mtai168/pi-web/blob/b1291393e0d1376d8fd0db3231cd1166a8c1e9ee/package.json)宣告 Pi Web `0.9.0`、Pi SDK `0.85.1`、Next `16.3.1`、React `^19.2.4`；不要把 manifest 的版本宣告當成部署 node_modules 已被重新驗證。開工前 Brain 再核對當時實際 HEAD 與 lockfile。
 
-下列都是靜態程式碼／文件觀察，不是正式環境 profiling 結果。
+## 2. 本次直接核對的程式碼
 
-| ID | 證據 | 可確認內容與規劃含義 |
+E 編號供其他文件引用；表列範圍是實際閱讀的相關區段，不宣稱逐行審查全部 579 個檔案。
+
+| ID | 精確位置 @ review SHA | 可確認行為與 P1 含義 |
 |---|---|---|
-| B1 | [session GET](https://github.com/mtai168/pi-web/blob/647cd341dcd5a66158f6decd5263dfbb94615385/app/api/sessions/%5Bid%5D/route.ts) | GET 使用 live SessionManager，否則 `SessionManager.open()`；還取得 entries、tree、context、累積統計及 project 資訊。`tail` 預設 50 不代表整條請求只處理 50 筆。應建立可重用讀取投影。 |
-| B2 | [session SSE route](https://github.com/mtai168/pi-web/blob/647cd341dcd5a66158f6decd5263dfbb94615385/app/api/agent/%5Bid%5D/events/route.ts) | 沒有 live wrapper 時會 `startRpcSession()`。共用唯讀 SSE 不得靠在 server 裡打開多條舊 SSE 來聚合。 |
-| B3 | [command/state route](https://github.com/mtai168/pi-web/blob/647cd341dcd5a66158f6decd5263dfbb94615385/app/api/agent/%5Bid%5D/route.ts) | POST 可初始化 runtime 後送命令；GET 讀既有 runtime state。傳輸已連線與 agent 已準備好應分離；現有回應不應被假定為持久化命令去重帳本。 |
-| B4 | [SSE 實作](https://github.com/mtai168/pi-web/blob/647cd341dcd5a66158f6decd5263dfbb94615385/lib/agent-event-stream.ts) | 已有 listener 安裝、初始化事件暫存、目前 streaming snapshot 與 heartbeat；frame 以 `data:` 編碼。不可把這些既有保護移除，但它不是本提案所需的持久歷史版本／補齊契約。 |
-| B5 | [hook 入口與型別](https://github.com/mtai168/pi-web/blob/647cd341dcd5a66158f6decd5263dfbb94615385/hooks/useAgentSession.ts#L1-L180) | 引入 AgentEventConnection、stream reducer、draft recovery，承載 session、extension UI、toolbar callbacks 等多種責任。不能只搬 messages 而遺漏其他事件。此輪讀取此檔前 180 行；完整函式與部署修改列為 Brain 的必要複驗。 |
-| B6 | [AGENTS.md](https://github.com/mtai168/pi-web/blob/647cd341dcd5a66158f6decd5263dfbb94615385/AGENTS.md) | 描述 in-process Pi、wrapper registry、fork 後銷毀 wrapper、全檔重寫、running reconciliation、工具切換與 file allow-list 等既有約束。這些是後續 adapter 必須保留的語意。 |
-| B7 | [branch contract](https://github.com/mtai168/pi-web/blob/647cd341dcd5a66158f6decd5263dfbb94615385/CUSTOMIZATIONS.md) | `main` 追 upstream；generic 功能在 `feature/session-wall`，品牌與 Brain/Hand parser 在 custom。此次不改這個分層。 |
+| E1 | [AppShell 1780–2030](https://github.com/mtai168/pi-web/blob/b1291393e0d1376d8fd0db3231cd1166a8c1e9ee/components/AppShell.tsx#L1780-L2030)、[3280–3540](https://github.com/mtai168/pi-web/blob/b1291393e0d1376d8fd0db3231cd1166a8c1e9ee/components/AppShell.tsx#L3280-L3540) | Wall 的 renderer 建立 keyed SessionWallChatWindow；Normal 的 ChatWindow 在 `workspaceMode === normal` 才掛載。共用 read cache 必須在模式條件外；不能推論隱藏 Wall 已全部卸載。 |
+| E2 | [SessionWallChatWindow](https://github.com/mtai168/pi-web/blob/b1291393e0d1376d8fd0db3231cd1166a8c1e9ee/components/session-wall/SessionWallChatWindow.tsx) | Wall adapter 最後使用同一 ChatWindow，另有 toolbar reporter ownership。沿用此 adapter，不另造一套聊天元件。 |
+| E3 | [useAgentSession 300–629](https://github.com/mtai168/pi-web/blob/b1291393e0d1376d8fd0db3231cd1166a8c1e9ee/hooks/useAgentSession.ts#L300-L629) | hook 保有 draft／runtime／queue／extension refs；loadSession 直接 GET detail，已有 observerSnapshotSeq、pagination generation、loading ownership 與 stale 404 guards。加入 cache 不得繞過這些 consumer guards。 |
+| E4 | [useAgentSession 630–880](https://github.com/mtai168/pi-web/blob/b1291393e0d1376d8fd0db3231cd1166a8c1e9ee/hooks/useAgentSession.ts#L630-L880) | loadContext 有 signal、anchor 存在性、page generation 與 entry ID 去重；ensure_session、get_tools、system info 等仍是命令路徑。只在 detail/context GET 接 coalescer。 |
+| E5 | [useAgentSession 1120–1340](https://github.com/mtai168/pi-web/blob/b1291393e0d1376d8fd0db3231cd1166a8c1e9ee/hooks/useAgentSession.ts#L1120-L1340) | 已有 active-run reconcile、visibility／online 恢復、connected 的 observer reload、session_snapshot 的 transcript 取代。應在既有事件接點通知 cache 失效，而不是另建 observer。 |
+| E6 | [detail GET 1–112](https://github.com/mtai168/pi-web/blob/b1291393e0d1376d8fd0db3231cd1166a8c1e9ee/app/api/sessions/%5Bid%5D/route.ts#L1-L112) | 使用 live SessionManager 或 SessionManager.open，再處理 entries、tree、context、全歷史 stats／timing、project info 與 JSON response。仍有 P1b 必須拆量的成本；不是只讀 tail 筆數。 |
+| E7 | [context GET](https://github.com/mtai168/pi-web/blob/b1291393e0d1376d8fd0db3231cd1166a8c1e9ee/app/api/sessions/%5Bid%5D/context/route.ts) | 接 leafId／before／tail／defer，回 context；沒有 durable contentRev，也不總是回傳 resolved leaf。cache 不得虛構缺少的 view／revision 證明。 |
+| E8 | [sessions state route](https://github.com/mtai168/pi-web/blob/b1291393e0d1376d8fd0db3231cd1166a8c1e9ee/app/api/sessions/%5Bid%5D/state/route.ts) | `/api/sessions/[id]/state` 在新版確實存在，處理 readOnly／authority。原 0.1 文件將這個路徑視為誤植的敘述撤回。cache hit 不能略過既有 state 流程。 |
+| E9 | [SSE route](https://github.com/mtai168/pi-web/blob/b1291393e0d1376d8fd0db3231cd1166a8c1e9ee/app/api/agent/%5Bid%5D/events/route.ts) | external-owner 模式直接代理 owner stream，失敗 fail closed；非 external 模式才走 local wrapper／authority-error observer。不能再概括成所有 SST SSE 都在本地啟動 agent。 |
+| E10 | [command/state route](https://github.com/mtai168/pi-web/blob/b1291393e0d1376d8fd0db3231cd1166a8c1e9ee/app/api/agent/%5Bid%5D/route.ts) | commands 在 external-owner 模式轉送，取消有 outcome-unknown 回應，無 local writable fallback。P1 不新增 retry、receipt ledger 或變更 authority。 |
+| E11 | [useSessionCatalog 1–230](https://github.com/mtai168/pi-web/blob/b1291393e0d1376d8fd0db3231cd1166a8c1e9ee/hooks/useSessionCatalog.ts#L1-L230)、[session-reader 1–220](https://github.com/mtai168/pi-web/blob/b1291393e0d1376d8fd0db3231cd1166a8c1e9ee/lib/session-reader.ts#L1-L220) | 已有 catalog requester、running poller 介面、listSessionsIncremental 接點、TTL cache 與 generation-aware list promise coalescing。清單能力不重做，也不把 sessionListVersion 當內容版本。 |
+| E12 | [session-observer 1–230](https://github.com/mtai168/pi-web/blob/b1291393e0d1376d8fd0db3231cd1166a8c1e9ee/lib/session-observer.ts#L1-L230) | 已有唯讀 JSONL observer 的 deps／snapshot、poll/stability/force-read 參數及 torn/cyclic entry 驗證。不新增 scanner／collector；本輪沒有重新審查此檔全部排程分支。 |
+| E13 | [observer tests 1–150](https://github.com/mtai168/pi-web/blob/b1291393e0d1376d8fd0db3231cd1166a8c1e9ee/lib/session-observer.test.mjs#L1-L150)、[events route tests](https://github.com/mtai168/pi-web/blob/b1291393e0d1376d8fd0db3231cd1166a8c1e9ee/app/api/agent/events-route.test.mjs) | 已有 snapshot／未知 running 與 SSE 啟動／buffering 測試。只做靜態閱讀，不宣稱本輪測試通過；P1 新測試應補充而非取代它們。 |
 
-先前對「逐頁恢復閱讀錨點」「快照互相覆蓋」「tree 夾帶重內容」等分析，應在實際部署 SHA 上逐一複驗。它們構成測試與重構檢查項，不在本文件偽裝成已重新審核部署程式、已重現 bug 或已量測毫秒數。
+## 3. 由證據導出的修訂
 
-## 3. Brain 必須補齊的部署端程式碼地圖
+可以確定的接入點是既有 detail/context GET 與 AppShell 模式邊界，不是整個 runtime 重寫。既有 stale guards 也不是共用 cache 的自動保證：consumer 拒收的舊回應，仍必須在 cache admission 層被拒絕。
 
-請記錄 `git remote -v`、branch、HEAD、dirty state、執行中的 checkout／啟動方式，以及 package 與 lockfile 的 SDK 版本。不要 reset、覆寫或丟棄正在開發的修改。
+Catalog 增量索引與 content 查詢索引是不同能力；E6/E7 顯示後者的成本仍應量測，但本次不新增 content index。快照 GET 的 live-manager 路徑也不能被當成磁碟已 fsync 的證明；正式 cache projection 的來源限制見 01。
 
-| 追蹤路徑 | 必須回答 |
-|---|---|
-| mode 按鈕 → AppShell／router → normal／Wall root | 切换是否整頁 navigation？哪個 provider、hook、EventSource 被卸載？normal 從未進 Wall 時走哪個路徑？ |
-| ChatWindow → useAgentSession → loadSession／loadContext | cache lifetime、anchor 恢復、request generation、branch identity、回應合併與取消各由誰負責？ |
-| Sidebar／catalog／running polling／notifications | 是否有多個資料擁有者？切模式或 SSE replay 是否重複通知？ |
-| handleSend → ensureEventsConnected → command POST | 移除 per-session SSE 後，哪些 ready、prompt recovery、queued commands、extension UI 行為會受影響？ |
-| rpc-manager → SDK subscribe → history persistence | 哪些事件尚未落盤？何時才可宣布 durable contentRev？如何避免 SDK 與檔案監看雙重計數？ |
-| branch／fork／compact／reload／set_tools | leaf 變更是否只存在 runtime？wrapper 重建與 session ID rekey 如何清除舊訂閱？ |
-| lazy media／thinking／tree／stats | 現有 API 是否已修正？哪些內容仍可能突破第一屏資料預算？ |
+已撤回的 0.1 承諾：新的 SessionStore 接管全域 runtime、單一 SSE 作為硬 gate、always-on collector、SQLite index、IndexedDB、replay，以及 cold tail query 不得 full-parse 等跨期驗收。本版不偷偷以「優化」恢復它們。
 
-每個結論附 `file:function/line @ SHA`。缺少部署原始碼時，回報缺口及最小需求；不得從舊快照猜出「已驗證」。
+## 4. Frozen 文件與部署證據邊界
 
-## 4. 與 frozen v0.1.0 規格的差異
+[現行 persistence 規格](https://github.com/mtai168/pi-web/blob/b1291393e0d1376d8fd0db3231cd1166a8c1e9ee/docs/session-wall/03_STATE_AND_PERSISTENCE.md#L150-L173)禁止 Wall storage 保存 message／prompt／tool output。本期只新增記憶體讀取副本，不改這個政策，也不影響既有 draft 的特定保存契約。
 
-本提案沒有直接修改下面文件。核准後先更新契約，再派相關 writer。
+交付後的 `docs/session-wall/02` 至 `08`、SST frozen 文件及 trackers 不在本次修改清單。核准實作後若需要正式補充，另作 post-v0.1 addendum，列明相容性，不改寫已交付歷史。應涵蓋：共享 read cache 所有權、memory-only 隱私邊界、失效／取消、效能與回退，以及單一 hot-file writer。
 
-| 現行文件 | 原契約／需核對处 | 本提案方向 |
-|---|---|---|
-| [02_ARCHITECTURE](../session-wall/02_ARCHITECTURE.md) §3–6 | 較薄的 core 改動、pane-local ChatWindow、catalog 可暫由 sidebar 提供 | Session store／catalog／sync 置於模式邊界外；互動、focus、pane error 邊界仍保留。 |
-| 同上 §9 | 優先沿用既有 API，batch／multiplex 延後；範例含 `/api/sessions/[id]/state` | multiplex 列入核准後的共用核心階段；此次實際 state route 是 B3 的 `/api/agent/[id]`，Brain 核對部署差異，不照抄錯誤路徑。 |
-| [03_STATE_AND_PERSISTENCE](../session-wall/03_STATE_AND_PERSISTENCE.md) §6–9、§12 | 既有 draft、URL 優先、best-effort scroll、Wall storage 不存訊息 | WallLayoutStore 仍只存 metadata；另提 SessionReadCache／IndexedDB 的隱私與容量政策。不得默默解除原禁令。 |
-| [04_MULTI_SESSION_RUNTIME](../session-wall/04_MULTI_SESSION_RUNTIME.md) | 需複驗各 pane／running／SSE 所有權 | 改為每頁一個 sync owner，與 agent 執行生命週期分離；保留逐 session Send／Stop／queue／extension 行為。 |
-| [05_PERFORMANCE_AND_VIRTUALIZATION](../session-wall/05_PERFORMANCE_AND_VIRTUALIZATION.md) | 現有 hot／warm／cold 與渲染策略 | 保留可見性設計，但資料及 transport 不因冷面板卸載而消失；不能只做到少 render、多重整份解析仍存在。 |
-| [06_FAILURE_MODES_AND_RECOVERY](../session-wall/06_FAILURE_MODES_AND_RECOVERY.md)、[07_ACCEPTANCE_TESTS](../session-wall/07_ACCEPTANCE_TESTS.md) | 現有恢復／正常模式回歸 | 加入版本倒退、快照銜接、外部寫入、休眠瀏覽不啟動 agent、cache eviction、模式切換測試。 |
-| [08_IMPLEMENTATION_PLAN](../session-wall/08_IMPLEMENTATION_PLAN.md)／trackers | 現有依賴與 file ownership | 新工作尚未排入任何 milestone；Brain 提出與正在執行 Hands 的衝突清單，由 Owner 決定插入點。 |
-
-## 5. 範圍與非目標
-
-優先修共用讀取／同步，維持現有 UI、normal selection、URL 意圖、draft key、keyboard／toolbar routing。不是把切回 normal 改成強制選擇剛才 focused Wall session。
-
-不新增自動發送、離線命令重播或 AI 自行執行的工作流。不假設 Tailscale 就等於完整授權。不卡死在 SQLite driver、provider 元件名或 API 路徑；它們在審查後才定案。
+[Brain 交接與修訂授權](https://github.com/mtai168/pi-web/pull/20#issuecomment-5623033775)是部署狀態與清理範圍的來源；本提案不重刊內網位址、私有路徑、私人分支名稱或舊敏感留言內容。開工時由 Brain 鎖定真實最新整合 SHA，記錄相對來源的 delta，不使用 review snapshot 或 docs branch 作實作基底。
